@@ -1,0 +1,32 @@
+# Environment
+backend/.env
+.env
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# Test database
+*.db
+*.sqlite3
+
+# pytest cache
+.pytest_cache/
+.coverage
+
+# VS Code
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# PDF
+*.pdf

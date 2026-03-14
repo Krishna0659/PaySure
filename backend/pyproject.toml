@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "paysure-backend"
+version = "1.0.0"
+description = "Milestone-Based Escrow Payment Protection Platform"
+authors = [
+    { name = "Saurabh Singh", email = "s24cseu0487@bennett.edu.in" },
+    { name = "Krishna Gaur", email = "s24cseu0659@bennett.edu.in" },
+]
+requires-python = ">=3.13"
+readme = "README.md"
+license = { text = "MIT" }
+
+[tool.pytest.ini_options]
+# Tells pytest where to find tests and sets async mode
+testpaths = ["tests"]
+asyncio_mode = "auto"
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+python_classes = ["Test*"]
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.black]
+# Black code formatter settings
+line-length = 88
+target-version = ["py313"]
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.venv
+  | venv
+  | alembic/versions
+)/
+'''
+
+[tool.isort]
+# Import sorting compatible with Black
+profile = "black"
+line_length = 88
+skip = ["alembic/versions", "venv", ".venv"]
+
+[tool.mypy]
+# Type checking settings
+python_version = "3.13"
+ignore_missing_imports = true
+warn_return_any = false
+warn_unused_configs = true
+exclude = ["alembic/", "venv/"]
