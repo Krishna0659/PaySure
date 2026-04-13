@@ -49,8 +49,8 @@ def create_escrow(db: Session, data: EscrowCreate) -> Escrow:
 
 def fund_escrow(db: Session, invoice_id: uuid.UUID) -> Escrow:
     """
-    Marks escrow as FUNDED after Razorpay payment is verified.
-    Also transitions the invoice to IN_PROGRESS state.
+    Marks escrow as FUNDED after payment is verified.
+    Also transitions the invoice to IN_PROGRESS state and locks funds in wallet.
     """
     escrow = get_escrow_by_invoice(db, invoice_id)
     invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
@@ -61,19 +61,28 @@ def fund_escrow(db: Session, invoice_id: uuid.UUID) -> Escrow:
     escrow.status = EscrowStatus.funded
     escrow.funded_at = datetime.now(timezone.utc)
 
-    # Move invoice to in_progress and first milestone to in_progress
-    invoice.status = InvoiceStatus.in_progress
-    first_milestone = (
-        db.query(Milestone)
-        .filter(Milestone.invoice_id == invoice_id)
-        .order_by(Milestone.order)
-        .first()
-    )
-    if first_milestone:
-        first_milestone.status = MilestoneStatus.in_progress
+    # Invoice moves to FUNDED — waiting for freelancer applications
+    # (in_progress only happens after a freelancer is accepted)
+    invoice.status = InvoiceStatus.funded
+    # NOTE: milestones stay PENDING until a freelancer is accepted
 
     db.commit()
     db.refresh(escrow)
+
+    # Lock funds in client wallet (wallet balance → escrow_balance)
+    try:
+        from app.services.wallet_service import lock_funds_for_project
+        if invoice.client_id:
+            lock_funds_for_project(db, invoice.client_id, float(escrow.total_amount), invoice_id)
+    except Exception:
+        pass  # Wallet update failure must not block the escrow flow
+
+    try:
+        from app.services.email_service import notify_payment_confirmed
+        notify_payment_confirmed(escrow, invoice)
+    except Exception:
+        pass
+
     return escrow
 
 
@@ -126,6 +135,29 @@ def release_milestone_payment(db: Session, milestone_id: uuid.UUID) -> Escrow:
 
     db.commit()
     db.refresh(escrow)
+
+    # Move funds from client escrow_balance to freelancer wallet balance
+    try:
+        from app.services.wallet_service import release_to_freelancer
+        invoice = milestone.invoice
+        if invoice.client_id and invoice.freelancer_id:
+            release_to_freelancer(
+                db,
+                client_user_id=invoice.client_id,
+                freelancer_user_id=invoice.freelancer_id,
+                amount=float(milestone.amount),
+                invoice_id=invoice.id,
+                milestone_title=milestone.title,
+            )
+    except Exception:
+        pass  # Wallet update failure must not block the escrow flow
+
+    try:
+        from app.services.email_service import notify_milestone_released
+        notify_milestone_released(milestone)
+    except Exception:
+        pass  # Email failure must never interrupt the primary flow
+
     return escrow
 
 
@@ -149,4 +181,14 @@ def refund_escrow(db: Session, invoice_id: uuid.UUID, amount: float) -> Escrow:
 
     db.commit()
     db.refresh(escrow)
+
+    # Return funds to client wallet
+    try:
+        from app.services.wallet_service import refund_to_client
+        invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
+        if invoice and invoice.client_id:
+            refund_to_client(db, invoice.client_id, amount, invoice_id, reason="Escrow refund")
+    except Exception:
+        pass  # Wallet update failure must not block the escrow flow
+
     return escrow

@@ -57,6 +57,13 @@ def raise_dispute(db: Session, data: DisputeCreate, raised_by_id: uuid.UUID) -> 
     db.add(dispute)
     db.commit()
     db.refresh(dispute)
+
+    try:
+        from app.services.email_service import notify_dispute_raised
+        notify_dispute_raised(dispute)
+    except Exception:
+        pass  # Email failure must never interrupt the primary flow
+
     return dispute
 
 

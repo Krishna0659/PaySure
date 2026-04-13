@@ -44,8 +44,8 @@ class Invoice(Base):
     due_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Foreign Keys — who created it and who needs to pay
-    freelancer_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
+    freelancer_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
     )
     client_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
@@ -72,6 +72,9 @@ class Invoice(Base):
     )
     escrow: Mapped["Escrow | None"] = relationship(
         "Escrow", back_populates="invoice", uselist=False
+    )
+    applications: Mapped[list["Application"]] = relationship(
+        "Application", back_populates="invoice", cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:

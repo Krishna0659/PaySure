@@ -29,6 +29,9 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
     hashed_password: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
+    phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    is_onboarded: Mapped[bool] = mapped_column(Boolean, server_default="false", default=False)
+
     role: Mapped[UserRole] = mapped_column(
         SAEnum(UserRole, name="userrole"), nullable=False, default=UserRole.freelancer
     )
@@ -51,6 +54,9 @@ class User(Base):
     )
     invoices_received: Mapped[list["Invoice"]] = relationship(
         "Invoice", foreign_keys="Invoice.client_id", back_populates="client"
+    )
+    wallet: Mapped["Wallet | None"] = relationship(
+        "Wallet", back_populates="user", uselist=False
     )
 
     def __repr__(self) -> str:

@@ -24,6 +24,14 @@ class Settings(BaseSettings):
     # ─── Razorpay ───────────────────────────────────────────
     RAZORPAY_KEY_ID: str = ""
     RAZORPAY_KEY_SECRET: str = ""
+    RAZORPAY_WEBHOOK_SECRET: str = ""
+
+    # ─── Email ──────────────────────────────────────────────
+    EMAIL_PROVIDER: str = ""        # "sendgrid" | "resend" | "" (no-op)
+    EMAIL_FROM: str = ""            # e.g. "noreply@paysure.app"
+    SENDGRID_API_KEY: str = ""
+    RESEND_API_KEY: str = ""
+    FRONTEND_URL: str = "http://localhost:5173"  # for email deep links
 
     # ─── CORS ───────────────────────────────────────────────
     ALLOWED_ORIGINS: str = "http://localhost:5173,http://localhost:3000"

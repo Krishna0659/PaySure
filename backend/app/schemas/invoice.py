@@ -27,7 +27,8 @@ class InvoiceBase(BaseModel):
 
 # ─── Create ─────────────────────────────────────────────────
 class InvoiceCreate(InvoiceBase):
-    client_id: uuid.UUID | None = None  # Can assign client later
+    freelancer_id: uuid.UUID | None = None  # Can assign freelancer later
+    client_id: uuid.UUID | None = None
 
 
 # ─── Update ─────────────────────────────────────────────────
@@ -36,6 +37,7 @@ class InvoiceUpdate(BaseModel):
     description: str | None = None
     total_amount: float | None = None
     due_date: datetime | None = None
+    freelancer_id: uuid.UUID | None = None
     client_id: uuid.UUID | None = None
     status: InvoiceStatus | None = None
 
@@ -45,7 +47,7 @@ class InvoiceResponse(InvoiceBase):
     id: uuid.UUID
     invoice_number: str
     status: InvoiceStatus
-    freelancer_id: uuid.UUID
+    freelancer_id: uuid.UUID | None
     client_id: uuid.UUID | None
     created_at: datetime
     updated_at: datetime

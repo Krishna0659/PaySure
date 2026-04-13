@@ -1,10 +1,13 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 
 from app.models.milestone import Milestone, MilestoneStatus
 from app.schemas.milestone import MilestoneCreate, MilestoneUpdate
+
+# Auto-approval window: 24 hours after submission
+AUTO_APPROVE_HOURS = 24
 
 
 def get_milestone_by_id(db: Session, milestone_id: uuid.UUID) -> Milestone:
@@ -82,6 +85,13 @@ def submit_milestone(db: Session, milestone_id: uuid.UUID, freelancer_id: uuid.U
     milestone.submitted_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(milestone)
+
+    try:
+        from app.services.email_service import notify_milestone_submitted
+        notify_milestone_submitted(milestone)
+    except Exception:
+        pass  # Email failure must never interrupt the primary flow
+
     return milestone
 
 
@@ -106,6 +116,75 @@ def approve_milestone(db: Session, milestone_id: uuid.UUID, client_id: uuid.UUID
     milestone.approved_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(milestone)
+    return milestone
+
+
+def reject_milestone(
+    db: Session,
+    milestone_id: uuid.UUID,
+    client_id: uuid.UUID,
+    feedback: str | None = None,
+) -> Milestone:
+    """
+    Client rejects a submitted milestone — sends it back to freelancer.
+    Transitions: SUBMITTED → IN_PROGRESS (back to work)
+    The rejection feedback is stored in the description field prefix.
+    """
+    milestone = get_milestone_by_id(db, milestone_id)
+
+    if milestone.invoice.client_id != client_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+
+    if milestone.status != MilestoneStatus.submitted:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only submitted milestones can be rejected",
+        )
+
+    # Store rejection feedback prepended to description
+    if feedback:
+        prefix = f"[REJECTED: {feedback}] "
+        milestone.description = prefix + (milestone.description or "")
+
+    # Return to in_progress — freelancer can resubmit
+    milestone.status = MilestoneStatus.in_progress
+    milestone.submitted_at = None  # Reset the submission clock
+    db.commit()
+    db.refresh(milestone)
+    return milestone
+
+
+def check_and_apply_auto_approval(db: Session, milestone: Milestone) -> Milestone:
+    """
+    Checks if a submitted milestone has exceeded the auto-approval window.
+    If 24h have passed since submission and client hasn't acted, auto-approve.
+    Also triggers escrow payment release.
+    """
+    if milestone.status != MilestoneStatus.submitted:
+        return milestone
+
+    if not milestone.submitted_at:
+        return milestone
+
+    now = datetime.now(timezone.utc)
+    submitted = milestone.submitted_at.replace(tzinfo=timezone.utc) if milestone.submitted_at.tzinfo is None else milestone.submitted_at
+    elapsed = now - submitted
+
+    if elapsed >= timedelta(hours=AUTO_APPROVE_HOURS):
+        # Auto-approve: transition to approved
+        milestone.status = MilestoneStatus.approved
+        milestone.approved_at = now
+        db.commit()
+        db.refresh(milestone)
+
+        # Trigger escrow release
+        try:
+            from app.services.escrow_service import release_milestone_payment
+            release_milestone_payment(db, milestone.id)
+            db.refresh(milestone)
+        except Exception:
+            pass  # Don't fail the read if release fails
+
     return milestone
 
 

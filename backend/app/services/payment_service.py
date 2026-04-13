@@ -138,3 +138,102 @@ def verify_payment(db: Session, data: PaymentVerify) -> Payment:
 def get_payments_for_escrow(db: Session, escrow_id: uuid.UUID) -> list[Payment]:
     """Returns all payment records linked to an escrow — for audit trail."""
     return db.query(Payment).filter(Payment.escrow_id == escrow_id).all()
+
+
+def get_wallet_summary(db: Session, user_id: uuid.UUID) -> dict:
+    """
+    Returns aggregated wallet/financial data for a user.
+    Client sees: total deposited, total locked, total released.
+    Freelancer sees: total earned, in escrow, released payments.
+    Works by aggregating across all escrow and payment records tied to the user.
+    """
+    from app.models.invoice import Invoice
+    from app.models.escrow import Escrow
+    from app.models.user import User, UserRole
+    from sqlalchemy import func
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        return {}
+
+    if user.role == UserRole.client:
+        # Client: their funded escrows
+        funded_escrows = (
+            db.query(Escrow)
+            .join(Invoice, Invoice.id == Escrow.invoice_id)
+            .filter(Invoice.client_id == user_id)
+            .all()
+        )
+
+        total_deposited = sum(float(e.total_amount) for e in funded_escrows if e.status != "created")
+        total_released = sum(float(e.released_amount) for e in funded_escrows)
+        total_refunded = sum(float(e.refunded_amount) for e in funded_escrows)
+        locked = total_deposited - total_released - total_refunded
+
+        # Transaction history: payments on client's escrows
+        escrow_ids = [e.id for e in funded_escrows]
+        transactions = []
+        if escrow_ids:
+            transactions = (
+                db.query(Payment)
+                .filter(Payment.escrow_id.in_(escrow_ids))
+                .order_by(Payment.created_at.desc())
+                .all()
+            )
+
+        return {
+            "role": "client",
+            "total_deposited": round(total_deposited, 2),
+            "locked_in_escrow": round(max(locked, 0.0), 2),
+            "total_released": round(total_released, 2),
+            "total_refunded": round(total_refunded, 2),
+            "transactions": transactions,
+        }
+
+    else:
+        # Freelancer: invoices where they are the freelancer
+        invoices = (
+            db.query(Invoice)
+            .filter(Invoice.freelancer_id == user_id)
+            .all()
+        )
+
+        from app.models.milestone import Milestone, MilestoneStatus
+
+        total_earned = 0.0
+        in_escrow = 0.0
+        total_released = 0.0
+
+        for inv in invoices:
+            milestones = db.query(Milestone).filter(Milestone.invoice_id == inv.id).all()
+            for m in milestones:
+                if m.status == MilestoneStatus.released:
+                    total_earned += float(m.amount)
+                    total_released += float(m.amount)
+                elif m.status in [MilestoneStatus.in_progress, MilestoneStatus.submitted, MilestoneStatus.approved]:
+                    in_escrow += float(m.amount)
+
+        # Transaction history: escrow releases on freelancer's invoices
+        invoice_ids = [inv.id for inv in invoices]
+        transactions = []
+        if invoice_ids:
+            escrows = db.query(Escrow).filter(Escrow.invoice_id.in_(invoice_ids)).all()
+            escrow_ids = [e.id for e in escrows]
+            if escrow_ids:
+                transactions = (
+                    db.query(Payment)
+                    .filter(
+                        Payment.escrow_id.in_(escrow_ids),
+                        Payment.payment_type == PaymentType.release,
+                    )
+                    .order_by(Payment.created_at.desc())
+                    .all()
+                )
+
+        return {
+            "role": "freelancer",
+            "total_earned": round(total_earned, 2),
+            "in_escrow": round(in_escrow, 2),
+            "total_released": round(total_released, 2),
+            "transactions": transactions,
+        }

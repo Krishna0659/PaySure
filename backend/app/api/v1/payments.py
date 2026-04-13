@@ -6,11 +6,29 @@ from app.db.session import get_db
 from app.schemas.payment import PaymentOrderCreate, PaymentVerify, PaymentResponse
 from app.services.payment_service import (
     create_payment_order, verify_payment, get_payments_for_escrow,
+    get_wallet_summary,
 )
 from app.core.security import get_current_user
 from app.utils.response import success_response
 
 router = APIRouter(prefix="/payments", tags=["Payments"])
+
+
+@router.get("/summary")
+def wallet_summary(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    Returns wallet summary for the current user based on their role.
+    Client: total deposited, locked, released, refunded.
+    Freelancer: total earned, in escrow, released.
+    """
+    summary = get_wallet_summary(db, current_user.id)
+    # Serialize transactions
+    txns = summary.pop("transactions", [])
+    summary["transactions"] = [PaymentResponse.model_validate(t).model_dump() for t in txns]
+    return success_response(data=summary)
 
 
 @router.post("/create-order")

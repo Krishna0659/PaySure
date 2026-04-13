@@ -6,6 +6,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.core.config import settings
 from app.core.logging import logger
 from app.api.v1.routes import api_router
+from app.api.v1.webhook import router as webhook_router
 from app.utils.exceptions import http_exception_handler, validation_exception_handler
 
 
@@ -37,6 +38,7 @@ def create_app() -> FastAPI:
 
     # ─── Routers ────────────────────────────────────────────
     app.include_router(api_router)
+    app.include_router(webhook_router)  # bypass Clerk auth middleware
 
     # ─── Health Check ───────────────────────────────────────
     @app.get("/health", tags=["Health"])
