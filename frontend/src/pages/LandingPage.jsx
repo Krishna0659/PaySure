@@ -199,14 +199,9 @@ export default function LandingPage() {
       <Navbar onGetStarted={handleGetStarted} />
 
         {/* HERO */}
-        <section style={{
-          position: 'relative', zIndex: 1,
-          minHeight: '100vh', display: 'flex',
-          alignItems: 'center', padding: '120px 60px 80px',
-          gap: 60, maxWidth: 1200, margin: '0 auto'
-        }}>
+        <section className="relative z-10 min-h-screen flex flex-col lg:flex-row items-center pt-[120px] pb-[80px] px-[20px] sm:px-[40px] lg:px-[60px] gap-[40px] lg:gap-[60px] max-w-[1200px] mx-auto w-full">
           {/* Left */}
-          <div style={{ flex: 1, maxWidth: 600 }}>
+          <div className="flex-1 max-w-[600px] w-full text-center lg:text-left flex flex-col items-center lg:items-start">
             <motion.div
               initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
@@ -245,7 +240,7 @@ export default function LandingPage() {
             <motion.p
               initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.2 }}
-              style={{ fontSize: '1.1rem', maxWidth: 460, marginBottom: 40 }}
+              className="text-[1rem] sm:text-[1.1rem] max-w-[460px] mb-[40px]"
             >
               PaySure locks client funds in secure escrow and releases them
               only when your work is verified — protecting both sides.
@@ -268,7 +263,7 @@ export default function LandingPage() {
             <motion.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }}
               transition={{ duration: 0.6, delay: 0.5 }}
-              style={{ display: 'flex', gap: 36, marginTop: 52 }}
+              className="flex gap-[20px] sm:gap-[36px] mt-[40px] lg:mt-[52px] justify-center lg:justify-start flex-wrap"
             >
               {[
                 { num: 12000, suffix: '+', label: 'Freelancers' },
@@ -290,7 +285,7 @@ export default function LandingPage() {
           </div>
 
           {/* Right — floating cards */}
-          <div style={{ flex: 1, position: 'relative', minHeight: 500 }}>
+          <div className="flex-1 relative min-h-[400px] lg:min-h-[500px] w-full hidden md:block">
             <FloatingCard delay={0.2} style={{ top: 40, left: 20, width: 250 }}>
               <div style={{ fontSize: '0.68rem', color: '#6B7280', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 10 }}>Escrow Balance</div>
               <div style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontSize: '2rem', fontWeight: 800, letterSpacing: '-0.02em', color: '#ECFDF5' }}>₹48,000</div>
@@ -342,14 +337,14 @@ export default function LandingPage() {
         </section>
 
         {/* HOW IT WORKS */}
-        <section id="how-it-works"  style={{ position: 'relative', zIndex: 1, padding: '100px 60px', maxWidth: 1200, margin: '0 auto' }}>
+        <section id="how-it-works" className="relative z-10 py-[60px] lg:py-[100px] px-[20px] sm:px-[40px] lg:px-[60px] max-w-[1200px] mx-auto w-full">
           <Reveal>
             <div className="section-label">Process</div>
             <h2 className="section-title" style={{ marginBottom: 12 }}>Three steps to<br />secure payments</h2>
             <p className="section-sub" style={{ marginBottom: 56 }}>From invoice to payment — every step transparent.</p>
           </Reveal>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20 }}>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-[20px]">
             {[
               { num: '01', icon: '📋', title: 'Create Invoice', desc: 'Define milestones, set amounts, send a professional invoice to your client instantly.' },
               { num: '02', icon: '🔒', title: 'Client Locks Funds', desc: 'Client deposits the full amount into PaySure escrow. Secured — neither party can touch it.' },
@@ -376,15 +371,9 @@ export default function LandingPage() {
         </section>
 
         {/* STATS */}
-        <section id="stats" style={{ position: 'relative', zIndex: 1, padding: '0 60px 100px', maxWidth: 1200, margin: '0 auto' }}>
+        <section id="stats" className="relative z-10 px-[20px] sm:px-[40px] lg:px-[60px] pb-[60px] lg:pb-[100px] max-w-[1200px] mx-auto w-full">
           <Reveal>
-            <div style={{
-              background: 'rgba(52,211,153,0.04)',
-              border: '1px solid rgba(52,211,153,0.12)',
-              borderRadius: 24, padding: '56px 60px',
-              display: 'grid', gridTemplateColumns: 'repeat(4,1fr)',
-              gap: 20, textAlign: 'center'
-            }}>
+            <div className="bg-[#34D3990A] border border-[#34D3991F] rounded-[24px] p-[30px] lg:p-[56px_60px] grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-[20px] text-center">
               {[
                 { target: 12000, suffix: '+', label: 'Active Freelancers' },
                 { target: 42, suffix: 'Cr+', label: 'Escrow Volume (₹)' },
@@ -404,21 +393,16 @@ export default function LandingPage() {
         </section>
 
         {/* CTA */}
-        <section id="cta" style={{ position: 'relative', zIndex: 1, padding: '0 60px 100px', maxWidth: 1200, margin: '0 auto' }}>
+        <section id="cta" className="relative z-10 px-[20px] sm:px-[40px] lg:px-[60px] pb-[60px] lg:pb-[100px] max-w-[1200px] mx-auto w-full">
           <Reveal>
-            <div style={{
-              background: 'linear-gradient(135deg, rgba(52,211,153,0.07), rgba(16,185,129,0.03))',
-              border: '1px solid rgba(52,211,153,0.15)',
-              borderRadius: 24, padding: '80px 60px',
-              textAlign: 'center', position: 'relative', overflow: 'hidden'
-            }}>
+            <div className="bg-gradient-to-br from-[#34D39912] to-[#10B98108] border border-[#34D39926] rounded-[24px] p-[40px_20px] lg:p-[80px_60px] text-center relative overflow-hidden">
               <div style={{ position: 'absolute', top: -60, left: '50%', transform: 'translateX(-50%)', width: 400, height: 200, background: 'radial-gradient(ellipse, rgba(52,211,153,0.1), transparent 70%)', pointerEvents: 'none' }} />
               <div className="section-label" style={{ marginBottom: 16 }}>Ready?</div>
               <h2 style={{ marginBottom: 16, fontFamily: 'Cabinet Grotesk, sans-serif', color: '#ECFDF5' }}>
                 Stop chasing payments.<br />Start using PaySure.
               </h2>
               <p style={{ marginBottom: 36, fontSize: '1rem', color: '#6B7280' }}>Free to start. No commissions. Just secure milestone payments.</p>
-              <div style={{ display: 'flex', gap: 14, justifyContent: 'center' }}>
+              <div className="flex flex-col sm:flex-row gap-[14px] justify-center items-center">
                 <button className="btn-primary" onClick={handleGetStarted}>
                   Create Free Account <ArrowRight size={16} />
                 </button>
@@ -429,12 +413,7 @@ export default function LandingPage() {
         </section>
 
         {/* FOOTER */}
-        <footer style={{
-          position: 'relative', zIndex: 1,
-          borderTop: '1px solid rgba(255,255,255,0.06)',
-          padding: '36px 60px', maxWidth: 1200, margin: '0 auto',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between'
-        }}>
+        <footer className="relative z-10 border-t border-white/5 py-[24px] lg:py-[36px] px-[20px] sm:px-[40px] lg:px-[60px] max-w-[1200px] mx-auto flex flex-col md:flex-row items-center justify-between gap-[20px] w-full">
           <span style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 800, fontSize: '1.1rem', letterSpacing: '-0.02em', color: '#ECFDF5' }}>
             Pay<span style={{ color: '#34D399' }}>Sure</span>
           </span>

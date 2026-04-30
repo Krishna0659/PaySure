@@ -7,16 +7,8 @@ export default function AppShell({ role, children }) {
     <div style={{ display: 'flex', minHeight: '100vh', background: '#050A07' }}>
       <Sidebar role={role} />
       {/* Main content — offset by sidebar width */}
-      <main style={{
-        flex: 1,
-        // Using paddingLeft to ensure it works well with mobile sidebar in future if needed
-        paddingLeft: 220,
-        minHeight: '100vh',
-        transition: 'padding-left 0.25s ease',
-        color: '#ECFDF5',
-        fontFamily: 'Inter, sans-serif',
-      }}>
-        <div style={{ padding: '32px 36px', minHeight: '100%' }}>
+      <main className="flex-1 min-h-screen text-[#ECFDF5] transition-all duration-300 pl-[64px] md:pl-[220px]" style={{ fontFamily: 'Inter, sans-serif' }}>
+        <div className="min-h-full p-4 sm:p-6 md:p-8">
           <SuspenseLoader>
             {children}
           </SuspenseLoader>

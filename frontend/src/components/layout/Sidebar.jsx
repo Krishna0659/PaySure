@@ -25,9 +25,8 @@ export default function Sidebar({ role }) {
 
   return (
     <div 
-      className="fixed top-0 left-0 z-50 flex flex-col h-screen overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]"
+      className={`fixed top-0 left-0 z-50 flex flex-col h-screen overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${collapsed ? 'w-[64px]' : 'w-[64px] md:w-[220px]'}`}
       style={{
-        width: collapsed ? 64 : 220,
         background: 'linear-gradient(180deg, rgba(20, 20, 24, 0.55) 0%, rgba(13, 13, 15, 0.8) 100%)',
         backdropFilter: 'blur(20px) saturate(1.2)',
         WebkitBackdropFilter: 'blur(20px) saturate(1.2)',
