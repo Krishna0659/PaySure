@@ -64,7 +64,7 @@ def update_milestone(db: Session, milestone_id: uuid.UUID, data: MilestoneUpdate
     return milestone
 
 
-def submit_milestone(db: Session, milestone_id: uuid.UUID, freelancer_id: uuid.UUID) -> Milestone:
+def submit_milestone(db: Session, milestone_id: uuid.UUID, freelancer_id: uuid.UUID, notes: str | None = None) -> Milestone:
     """
     Freelancer marks milestone as submitted.
     Transitions: IN_PROGRESS → SUBMITTED
@@ -83,6 +83,7 @@ def submit_milestone(db: Session, milestone_id: uuid.UUID, freelancer_id: uuid.U
 
     milestone.status = MilestoneStatus.submitted
     milestone.submitted_at = datetime.now(timezone.utc)
+    milestone.submission_notes = notes
     db.commit()
     db.refresh(milestone)
 

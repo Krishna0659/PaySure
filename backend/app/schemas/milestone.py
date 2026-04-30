@@ -40,12 +40,16 @@ class MilestoneStatusUpdate(BaseModel):
     # Used for explicit state transitions — submit, approve, dispute
     status: MilestoneStatus
 
+class MilestoneSubmit(BaseModel):
+    notes: str | None = None
+
 
 # ─── Response ───────────────────────────────────────────────
 class MilestoneResponse(MilestoneBase):
     id: uuid.UUID
     invoice_id: uuid.UUID
     status: MilestoneStatus
+    submission_notes: str | None = None
     submitted_at: datetime | None
     approved_at: datetime | None
     released_at: datetime | None

@@ -27,7 +27,7 @@ def apply_to_invoice(
     if not invoice:
         raise HTTPException(status_code=404, detail="Invoice not found")
 
-    if invoice.status != InvoiceStatus.funded:
+    if invoice.status not in [InvoiceStatus.sent, InvoiceStatus.funded]:
         if invoice.status == InvoiceStatus.in_progress:
             raise HTTPException(status_code=400, detail="Project already assigned to a freelancer")
         raise HTTPException(status_code=400, detail=f"Cannot apply to a project in status: {invoice.status}")

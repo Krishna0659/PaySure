@@ -27,7 +27,7 @@ def get_invoice_by_id(db: Session, invoice_id: uuid.UUID) -> Invoice:
 def get_invoices_for_user(db: Session, user_id: uuid.UUID, role: UserRole) -> list[Invoice]:
     """
     Returns invoices relevant to the user based on their role.
-    Freelancers see invoices assigned to them AND funded/in_progress invoices
+    Freelancers see invoices assigned to them AND sent/funded/in_progress invoices
     with no assigned freelancer (open projects visible to all freelancers).
     Clients see invoices they created.
     """
@@ -37,21 +37,22 @@ def get_invoices_for_user(db: Session, user_id: uuid.UUID, role: UserRole) -> li
             .filter(
                 or_(
                     Invoice.freelancer_id == user_id,
-                    # Funded/active projects with no assigned freelancer are visible to all freelancers
-                    (Invoice.freelancer_id == None) & (Invoice.status.in_([InvoiceStatus.funded, InvoiceStatus.in_progress]))
+                    # Sent/Funded/In-progress projects with no assigned freelancer are visible to all freelancers
+                    (Invoice.freelancer_id == None) & (Invoice.status.in_([InvoiceStatus.sent, InvoiceStatus.funded, InvoiceStatus.in_progress]))
                 )
             )
+            .order_by(Invoice.created_at.desc())
             .all()
         )
     elif role == UserRole.client:
-        return db.query(Invoice).filter(Invoice.client_id == user_id).all()
+        return db.query(Invoice).filter(Invoice.client_id == user_id).order_by(Invoice.created_at.desc()).all()
     else:
         # Admin sees all invoices
-        return db.query(Invoice).all()
+        return db.query(Invoice).order_by(Invoice.created_at.desc()).all()
 
 
 def create_invoice(db: Session, data: InvoiceCreate, user_id: uuid.UUID, role: UserRole) -> Invoice:
-    """Creates a new invoice with an auto-generated invoice number in DRAFT status."""
+    """Creates a new invoice with an auto-generated invoice number in DRAFT or SENT status."""
     if role == UserRole.client:
         client_id = user_id
         freelancer_id = data.freelancer_id
@@ -59,16 +60,22 @@ def create_invoice(db: Session, data: InvoiceCreate, user_id: uuid.UUID, role: U
         freelancer_id = user_id
         client_id = data.client_id
 
+    # If no freelancer is assigned, the project is effectively 'posted' to the marketplace (SENT)
+    # If a freelancer is assigned, it stays in DRAFT until the client is ready to send it to them
+    initial_status = InvoiceStatus.draft
+    if role == UserRole.client and freelancer_id is None:
+        initial_status = InvoiceStatus.sent
+
     invoice = Invoice(
         invoice_number=generate_invoice_number(db),
-        title=data.title,
+        title=title_val if (title_val := data.title) else "Untitled Project",
         description=data.description,
         total_amount=data.total_amount,
         currency=data.currency,
         due_date=data.due_date,
         freelancer_id=freelancer_id,
         client_id=client_id,
-        status=InvoiceStatus.draft,
+        status=initial_status,
     )
     db.add(invoice)
     db.commit()
@@ -76,18 +83,19 @@ def create_invoice(db: Session, data: InvoiceCreate, user_id: uuid.UUID, role: U
     return invoice
 
 
-def update_invoice(db: Session, invoice_id: uuid.UUID, data: InvoiceUpdate, requester_id: uuid.UUID) -> Invoice:
+def update_invoice(db: Session, invoice_id: uuid.UUID, data: InvoiceUpdate, requester_id: uuid.UUID, is_admin: bool = False) -> Invoice:
     """
-    Updates invoice fields. Only the creator (client or freelancer) 
-    can update it, and only while it's still in draft/sent state.
+    Updates invoice fields. Only the creator or an admin
+    can update it. Admins can update in any status.
     """
     invoice = get_invoice_by_id(db, invoice_id)
 
-    if invoice.freelancer_id != requester_id and invoice.client_id != requester_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to update this invoice")
+    if not is_admin:
+        if invoice.freelancer_id != requester_id and invoice.client_id != requester_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to update this invoice")
 
-    if invoice.status not in [InvoiceStatus.draft, InvoiceStatus.sent]:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot update invoice after funding")
+        if invoice.status not in [InvoiceStatus.draft, InvoiceStatus.sent]:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot update invoice after funding")
 
     update_data = data.model_dump(exclude_unset=True)
     for field, value in update_data.items():
@@ -96,6 +104,16 @@ def update_invoice(db: Session, invoice_id: uuid.UUID, data: InvoiceUpdate, requ
     db.commit()
     db.refresh(invoice)
     return invoice
+
+
+def delete_invoice(db: Session, invoice_id: uuid.UUID) -> None:
+    """Permanently deletes an invoice and its milestones."""
+    invoice = get_invoice_by_id(db, invoice_id)
+    # Milestones are deleted by cascade in DB (if configured) or manually here
+    from app.models.milestone import Milestone
+    db.query(Milestone).filter(Milestone.invoice_id == invoice_id).delete()
+    db.delete(invoice)
+    db.commit()
 
 
 def send_invoice(db: Session, invoice_id: uuid.UUID, requester_id: uuid.UUID) -> Invoice:

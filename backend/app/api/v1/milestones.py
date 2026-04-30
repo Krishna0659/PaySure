@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.schemas.milestone import MilestoneCreate, MilestoneUpdate, MilestoneResponse
+from app.schemas.milestone import MilestoneCreate, MilestoneUpdate, MilestoneResponse, MilestoneSubmit
 from app.services.milestone_service import (
     create_milestone, get_milestone_by_id, get_milestones_for_invoice,
     update_milestone, submit_milestone, approve_milestone, dispute_milestone,
@@ -75,11 +75,14 @@ def update_existing_milestone(
 @router.post("/{milestone_id}/submit")
 def submit_work(
     milestone_id: uuid.UUID,
+    data: MilestoneSubmit = MilestoneSubmit(),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     """Freelancer marks milestone work as submitted — IN_PROGRESS → SUBMITTED."""
-    milestone = submit_milestone(db, milestone_id, freelancer_id=current_user.id)
+    milestone = submit_milestone(
+        db, milestone_id, freelancer_id=current_user.id, notes=data.notes
+    )
     return success_response(
         data=MilestoneResponse.model_validate(milestone),
         message="Milestone submitted for review",

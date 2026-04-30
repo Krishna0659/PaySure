@@ -228,20 +228,30 @@ export default function AdminPage() {
 
   const [stats, setStats] = useState(null);
   const [disputes, setDisputes] = useState([]);
-  const [transactions, setTransactions] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [invoices, setInvoices] = useState([]);
   const [activeTab, setActiveTab] = useState('disputes');
   const [loading, setLoading] = useState(true);
 
+  // Management modals state
+  const [editingUser, setEditingUser] = useState(null);
+  const [editingProject, setEditingProject] = useState(null);
+  const [actionLoading, setActionLoading] = useState(false);
+
   const fetchAll = useCallback(async () => {
     try {
-      const [statsData, disputesData, txnData] = await Promise.all([
+      const [statsData, disputesData, txnData, usersData, invoicesData] = await Promise.all([
         apiFetch('/admin/stats', { getToken }),
         apiFetch('/disputes/', { getToken }),
         apiFetch('/admin/transactions', { getToken }),
+        apiFetch('/users/', { getToken }),
+        apiFetch('/invoices/', { getToken }),
       ]);
       setStats(statsData);
       setDisputes(disputesData || []);
       setTransactions(txnData || []);
+      setUsers(usersData || []);
+      setInvoices(invoicesData || []);
     } catch (e) {
       console.error('Admin fetch error:', e);
     } finally {
@@ -264,6 +274,46 @@ export default function AdminPage() {
   const handleMarkReview = async (disputeId) => {
     await apiFetch(`/disputes/${disputeId}/review`, { getToken, method: 'POST' });
     await fetchAll();
+  };
+
+  const handleUpdateUser = async (userId, data) => {
+    setActionLoading(true);
+    try {
+      await apiFetch(`/users/${userId}`, { getToken, method: 'PUT', body: data });
+      setEditingUser(null);
+      await fetchAll();
+    } catch (e) { alert(e.message); }
+    finally { setActionLoading(false); }
+  };
+
+  const handleDeleteUser = async (userId) => {
+    if (!confirm('Are you sure you want to PERMANENTLY delete this user? This cannot be undone.')) return;
+    setActionLoading(true);
+    try {
+      await apiFetch(`/users/${userId}`, { getToken, method: 'DELETE' });
+      await fetchAll();
+    } catch (e) { alert(e.message); }
+    finally { setActionLoading(false); }
+  };
+
+  const handleUpdateProject = async (id, data) => {
+    setActionLoading(true);
+    try {
+      await apiFetch(`/invoices/${id}`, { getToken, method: 'PUT', body: data });
+      setEditingProject(null);
+      await fetchAll();
+    } catch (e) { alert(e.message); }
+    finally { setActionLoading(false); }
+  };
+
+  const handleDeleteProject = async (id) => {
+    if (!confirm('Are you sure you want to PERMANENTLY delete this project? Escrow records might remain in payment gateway.')) return;
+    setActionLoading(true);
+    try {
+      await apiFetch(`/invoices/${id}`, { getToken, method: 'DELETE' });
+      await fetchAll();
+    } catch (e) { alert(e.message); }
+    finally { setActionLoading(false); }
   };
 
   if (profileLoading || !profile) return (
@@ -348,10 +398,12 @@ export default function AdminPage() {
 
           {/* Tabs */}
           <FadeUp delay={0.1}>
-            <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 20, overflowX: 'auto', paddingBottom: 4 }}>
               {[
                 { key: 'disputes', label: 'Disputes', icon: AlertTriangle },
                 { key: 'transactions', label: 'Transactions', icon: CreditCard },
+                { key: 'users', label: 'User Directory', icon: Users },
+                { key: 'projects', label: 'Project Monitor', icon: FileText },
               ].map(tab => (
                 <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{
                   display: 'flex', alignItems: 'center', gap: 6,
@@ -402,7 +454,6 @@ export default function AdminPage() {
                 </SectionCard>
               </motion.div>
             )}
-
             {activeTab === 'transactions' && (
               <motion.div key="transactions" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
                 <SectionCard>
@@ -464,8 +515,189 @@ export default function AdminPage() {
                 </SectionCard>
               </motion.div>
             )}
+
+            {activeTab === 'users' && (
+              <motion.div key="users" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
+                <SectionCard>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                    <h3 style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontSize: '1rem', fontWeight: 700, color: '#ECFDF5', margin: 0 }}>
+                      <Users size={16} style={{ marginRight: 6, verticalAlign: -2 }} />
+                      Registered Users ({users.length})
+                    </h3>
+                  </div>
+                  <div style={{ border: '1px solid rgba(255,255,255,0.04)', borderRadius: 12, overflow: 'hidden' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', color: '#9CA3AF' }}>
+                      <thead style={{ background: 'rgba(255,255,255,0.02)', textAlign: 'left' }}>
+                        <tr>
+                          <th style={{ padding: '12px 16px', fontWeight: 600 }}>Name / Email</th>
+                          <th style={{ padding: '12px 16px', fontWeight: 600 }}>Role</th>
+                          <th style={{ padding: '12px 16px', fontWeight: 600 }}>Status</th>
+                          <th style={{ padding: '12px 16px', fontWeight: 600 }}>Since</th>
+                          <th style={{ padding: '12px 16px', fontWeight: 600, textAlign: 'right' }}>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {users.map((u, i) => (
+                          <tr key={u.id} style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+                            <td style={{ padding: '12px 16px' }}>
+                              <div style={{ fontWeight: 600, color: '#ECFDF5' }}>{u.full_name || 'N/A'}</div>
+                              <div style={{ fontSize: '0.72rem', color: '#6B7280' }}>{u.email}</div>
+                            </td>
+                            <td style={{ padding: '12px 16px' }}>
+                              <Badge status={u.role} />
+                            </td>
+                            <td style={{ padding: '12px 16px' }}>
+                              {u.is_onboarded ? (
+                                <span style={{ color: '#34D399', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                  <CheckCircle size={10} /> Active
+                                </span>
+                              ) : (
+                                <span style={{ color: '#FBBF24', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                  <Clock size={10} /> Pending
+                                </span>
+                              )}
+                            </td>
+                            <td style={{ padding: '12px 16px' }}>
+                              {new Date(u.created_at).toLocaleDateString()}
+                            </td>
+                            <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                                <button onClick={() => setEditingUser(u)} style={{ background: 'transparent', border: 'none', color: '#60A5FA', cursor: 'pointer', fontWeight: 600 }}>Edit</button>
+                                <button onClick={() => handleDeleteUser(u.id)} style={{ background: 'transparent', border: 'none', color: '#F87171', cursor: 'pointer', fontWeight: 600 }}>Delete</button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </SectionCard>
+              </motion.div>
+            )}
+
+            {activeTab === 'projects' && (
+              <motion.div key="projects" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
+                <SectionCard>
+                  <h3 style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontSize: '1rem', fontWeight: 700, color: '#ECFDF5', marginBottom: 16 }}>
+                    <FileText size={16} style={{ marginRight: 6, verticalAlign: -2 }} />
+                    Platform Invoices ({invoices.length})
+                  </h3>
+                  <div style={{ display: 'grid', gap: 12 }}>
+                    {invoices.map((inv, i) => (
+                      <div key={inv.id} style={{
+                        padding: '14px 18px', borderRadius: 12,
+                        background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)',
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                      }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: 700, color: '#ECFDF5', marginBottom: 4 }}>{inv.title}</div>
+                          <div style={{ fontSize: '0.72rem', color: '#6B7280', display: 'flex', gap: 12 }}>
+                            <span>Client: {inv.client_name}</span>
+                            <span>|</span>
+                            <span>Freelancer: {inv.freelancer_name || 'Unassigned'}</span>
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+                          <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 800, color: '#34D399' }}>
+                              ₹{Number(inv.total_amount).toLocaleString()}
+                            </div>
+                            <div style={{ fontSize: '0.65rem', color: '#6B7280' }}>Total Value</div>
+                          </div>
+                          <Badge status={inv.status} />
+                          <div style={{ display: 'flex', gap: 8, borderLeft: '1px solid rgba(255,255,255,0.06)', paddingLeft: 16 }}>
+                                <button onClick={() => setEditingProject(inv)} style={{ background: 'transparent', border: 'none', color: '#60A5FA', cursor: 'pointer', fontSize: '0.78rem' }}>Edit</button>
+                                <button onClick={() => handleDeleteProject(inv.id)} style={{ background: 'transparent', border: 'none', color: '#F87171', cursor: 'pointer', fontSize: '0.78rem' }}>Delete</button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </SectionCard>
+              </motion.div>
+            )}
           </AnimatePresence>
         </>
+      )}
+      {/* Edit User Modal */}
+      {editingUser && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(4px)' }}>
+          <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} style={{ width: '100%', maxWidth: 400, background: '#0A1410', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, padding: 24 }}>
+            <h2 style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontSize: '1.25rem', fontWeight: 800, color: '#ECFDF5', marginBottom: 20 }}>Manage User</h2>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: '0.75rem', color: '#6B7280', display: 'block', marginBottom: 8 }}>User Role</label>
+              <select 
+                value={editingUser.role} 
+                onChange={(e) => setEditingUser({ ...editingUser, role: e.target.value })}
+                style={{ width: '100%', padding: '10px 12px', borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', color: '#ECFDF5', outline: 'none' }}
+              >
+                <option value="freelancer">Freelancer</option>
+                <option value="client">Client</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+            <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
+              <button 
+                onClick={() => handleUpdateUser(editingUser.id, { role: editingUser.role })}
+                disabled={actionLoading}
+                style={{ flex: 1, padding: '10px', borderRadius: 8, background: '#34D399', color: '#050A07', fontWeight: 700, border: 'none', cursor: 'pointer' }}
+              >
+                {actionLoading ? 'Saving...' : 'Save Changes'}
+              </button>
+              <button onClick={() => setEditingUser(null)} style={{ flex: 1, padding: '10px', borderRadius: 8, background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: '#9CA3AF', cursor: 'pointer' }}>Cancel</button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Edit Project Modal */}
+      {editingProject && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(4px)' }}>
+          <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} style={{ width: '100%', maxWidth: 450, background: '#0A1410', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, padding: 24 }}>
+            <h2 style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontSize: '1.25rem', fontWeight: 800, color: '#ECFDF5', marginBottom: 20 }}>Edit Project details</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label style={{ fontSize: '0.75rem', color: '#6B7280', display: 'block', marginBottom: 6 }}>Project Title</label>
+                <input 
+                  value={editingProject.title} 
+                  onChange={(e) => setEditingProject({ ...editingProject, title: e.target.value })}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', color: '#ECFDF5', outline: 'none' }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.75rem', color: '#6B7280', display: 'block', marginBottom: 6 }}>Total Amount (₹)</label>
+                <input 
+                  type="number"
+                  value={editingProject.total_amount} 
+                  onChange={(e) => setEditingProject({ ...editingProject, total_amount: parseFloat(e.target.value) })}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', color: '#ECFDF5', outline: 'none' }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.75rem', color: '#6B7280', display: 'block', marginBottom: 6 }}>Project Status</label>
+                <select 
+                  value={editingProject.status} 
+                  onChange={(e) => setEditingProject({ ...editingProject, status: e.target.value })}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', color: '#ECFDF5', outline: 'none', textTransform: 'capitalize' }}
+                >
+                  {['draft', 'sent', 'funded', 'in_progress', 'completed', 'cancelled'].map(s => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
+              <button 
+                onClick={() => handleUpdateProject(editingProject.id, { title: editingProject.title, total_amount: editingProject.total_amount, status: editingProject.status })}
+                disabled={actionLoading}
+                style={{ flex: 1, padding: '10px', borderRadius: 8, background: '#34D399', color: '#050A07', fontWeight: 700, border: 'none', cursor: 'pointer' }}
+              >
+                {actionLoading ? 'Updating...' : 'Update Project'}
+              </button>
+              <button onClick={() => setEditingProject(null)} style={{ flex: 1, padding: '10px', borderRadius: 8, background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: '#9CA3AF', cursor: 'pointer' }}>Cancel</button>
+            </div>
+          </motion.div>
+        </div>
       )}
     </AppShell>
   );

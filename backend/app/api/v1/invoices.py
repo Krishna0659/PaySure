@@ -85,12 +85,35 @@ def update_existing_invoice(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    """Freelancer updates invoice details — only allowed in draft/sent state."""
-    invoice = update_invoice(db, invoice_id, data, requester_id=current_user.id)
+    """Updates invoice details — only allowed in draft/sent state or for admin."""
+    # Check if admin
+    is_admin = current_user.role == "admin"
+    
+    invoice = update_invoice(
+        db, invoice_id, data, 
+        requester_id=current_user.id, 
+        is_admin=is_admin
+    )
     return success_response(
         data=InvoiceResponse.model_validate(invoice),
         message="Invoice updated successfully",
     )
+
+
+@router.delete("/{invoice_id}")
+def admin_delete_invoice(
+    invoice_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Permanently deletes an invoice — admin only."""
+    if current_user.role != "admin":
+        from fastapi import HTTPException
+        raise HTTPException(status_code=403, detail="Admin only")
+    
+    from app.services.invoice_service import delete_invoice as service_delete_invoice
+    service_delete_invoice(db, invoice_id)
+    return success_response(message="Invoice deleted successfully")
 
 
 @router.post("/{invoice_id}/send")

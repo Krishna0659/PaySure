@@ -30,3 +30,6 @@ Thumbs.db
 
 # PDF
 *.pdf
+
+.agents/
+.kiro/

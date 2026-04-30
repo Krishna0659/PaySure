@@ -198,8 +198,24 @@ function MilestoneNode({ milestone, index, total, role, onAction, actionLoading 
             <AnimatePresence>
               <motion.div
                 initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
-                style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}
+                style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}
               >
+                {/* Freelancer/Owner Submission Notes Display */}
+                {milestone.status !== 'in_progress' && milestone.status !== 'pending' && milestone.submission_notes && (
+                  <div style={{
+                    width: '100%', padding: '12px 14px', borderRadius: 10,
+                    background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)',
+                    marginBottom: 4
+                  }}>
+                    <div style={{ fontSize: '0.65rem', color: '#6B7280', fontWeight: 600, marginBottom: 4, textTransform: 'uppercase' }}>
+                      Submission Notes
+                    </div>
+                    <p style={{ fontSize: '0.82rem', color: '#9CA3AF', margin: 0, whiteSpace: 'pre-wrap' }}>
+                      {milestone.submission_notes}
+                    </p>
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {/* Freelancer: Submit */}
                 {role === 'freelancer' && milestone.status === 'in_progress' && !showSubmit && (
                   <ActionButton variant="primary" onClick={() => setShowSubmit(true)}>
@@ -225,7 +241,23 @@ function MilestoneNode({ milestone, index, total, role, onAction, actionLoading 
                   </div>
                 )}
 
-                {/* Client: Approve / Reject / Release */}
+                {/* Client Review Box */}
+                {role === 'client' && milestone.status === 'submitted' && milestone.submission_notes && (
+                  <div style={{
+                    width: '100%', padding: '12px 14px', borderRadius: 10,
+                    background: 'rgba(52,211,153,0.03)', border: '1px solid rgba(52,211,153,0.1)',
+                    marginBottom: 12, marginTop: 4
+                  }}>
+                    <div style={{ fontSize: '0.65rem', color: '#34D399', fontWeight: 600, marginBottom: 4, textTransform: 'uppercase' }}>
+                      Freelancer's Submission Notes
+                    </div>
+                    <p style={{ fontSize: '0.82rem', color: '#ECFDF5', margin: 0, whiteSpace: 'pre-wrap' }}>
+                      {milestone.submission_notes}
+                    </p>
+                  </div>
+                )}
+
+                {/* Client Actions */}
                 {role === 'client' && milestone.status === 'submitted' && (
                   <>
                     <ActionButton variant="primary" loading={actionLoading}
@@ -233,25 +265,28 @@ function MilestoneNode({ milestone, index, total, role, onAction, actionLoading 
                       <CheckCircle size={14} /> Approve & Pay
                     </ActionButton>
                     {!showReject ? (
-                      <ActionButton variant="danger" onClick={() => setShowReject(true)}>
-                        <XCircle size={14} /> Reject
+                      <ActionButton variant="warning" onClick={() => setShowReject(true)}>
+                        <RefreshCw size={14} /> Request Changes
                       </ActionButton>
                     ) : (
-                      <div style={{ display: 'flex', gap: 8, flex: 1, alignItems: 'center' }}>
-                        <input
-                          placeholder="Reason for rejection..."
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flex: 1, width: '100%' }}>
+                        <textarea
+                          placeholder="Tell the freelancer what needs to be changed..."
                           value={rejectFeedback} onChange={e => setRejectFeedback(e.target.value)}
+                          rows={2}
                           style={{
-                            flex: 1, padding: '8px 12px', borderRadius: 8,
-                            background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(248,113,113,0.2)',
-                            color: '#E2E8F0', fontSize: '0.82rem', outline: 'none',
+                            width: '100%', padding: '10px 12px', borderRadius: 8,
+                            background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(251,191,36,0.3)',
+                            color: '#E2E8F0', fontSize: '0.82rem', outline: 'none', resize: 'vertical'
                           }}
                         />
-                        <ActionButton variant="danger" loading={actionLoading}
-                          onClick={() => onAction('reject', milestone.id, rejectFeedback)}>
-                          Confirm Reject
-                        </ActionButton>
-                        <ActionButton variant="ghost" onClick={() => setShowReject(false)}>Cancel</ActionButton>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <ActionButton variant="warning" loading={actionLoading}
+                            onClick={() => onAction('reject', milestone.id, rejectFeedback)}>
+                            Send Change Request
+                          </ActionButton>
+                          <ActionButton variant="ghost" onClick={() => setShowReject(false)}>Cancel</ActionButton>
+                        </div>
                       </div>
                     )}
                   </>
@@ -264,6 +299,7 @@ function MilestoneNode({ milestone, index, total, role, onAction, actionLoading 
                     <DollarSign size={14} /> Release Payment
                   </ActionButton>
                 )}
+                </div>
               </motion.div>
             </AnimatePresence>
           </div>
@@ -494,7 +530,9 @@ export default function InvoiceDetailPage() {
     setActionLoading(true);
     try {
       if (action === 'submit') {
-        await apiFetch(`/milestones/${milestoneId}/submit`, { getToken, method: 'POST' });
+        await apiFetch(`/milestones/${milestoneId}/submit`, { 
+          getToken, method: 'POST', body: { notes: extra } 
+        });
       } else if (action === 'release') {
         await apiFetch(`/milestones/${milestoneId}/release`, { getToken, method: 'POST' });
       } else if (action === 'reject') {

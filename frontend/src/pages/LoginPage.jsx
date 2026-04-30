@@ -10,7 +10,7 @@ const clerkAppearance = {
     colorPrimary: '#34D399',
     colorBackground: 'transparent',
     colorText: '#ffffff',
-    colorInputBackground: 'rgba(255,255,255,0.03)',
+    colorInputBackground: 'rgba(255,255,255,0.05)',
     colorInputText: '#ffffff',
     colorTextOnPrimaryBackground: '#000000',
     fontFamily: 'Inter, sans-serif'
@@ -18,38 +18,35 @@ const clerkAppearance = {
   elements: {
     card: { background: 'transparent', boxShadow: 'none' },
     headerTitle: { color: '#ffffff', fontFamily: 'Cabinet Grotesk, sans-serif', fontSize: '1.8rem' },
-    headerSubtitle: { color: '#6B7280' },
+    headerSubtitle: { color: '#9CA3AF' },
     formButtonPrimary: { background: '#34D399', color: '#000000', '&:hover': { background: '#10B981' } },
-    socialButtonsBlockButton: { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#ffffff', '&:hover': { background: 'rgba(255,255,255,0.06)' } },
+    socialButtonsBlockButton: { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#ffffff', '&:hover': { background: 'rgba(255,255,255,0.08)' } },
     socialButtonsBlockButtonText: { color: '#ffffff', fontWeight: '500' },
     formFieldLabel: { color: '#D1D5DB' },
-    formFieldInput: { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', color: '#ffffff' },
+    formFieldInput: { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.12)', color: '#ffffff', '&:focus': { borderColor: '#34D399' } },
     otpCodeFieldInput: {
-      background: 'rgba(10,20,16,0.8)',
-      borderColor: 'rgba(255,255,255,0.08)',
+      background: 'rgba(255,255,255,0.05)',
+      borderColor: 'rgba(255,255,255,0.15)',
       borderWidth: '1px',
       borderStyle: 'solid',
       color: '#ECFDF5',
-      minWidth: '48px',
-      minHeight: '48px',
+      minWidth: '46px',
+      minHeight: '46px',
       fontSize: '1.25rem',
-      fontWeight: '600',
+      fontWeight: '700',
       textAlign: 'center',
+      borderRadius: '8px',
       transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
       '&:focus': {
         borderColor: '#34D399',
-        boxShadow: '0 0 0 2px rgba(52,211,153,0.25)',
-        transform: 'scale(1.05)',
+        boxShadow: '0 0 0 2px rgba(52,211,153,0.3)',
+        background: 'rgba(52,211,153,0.08)',
         outline: 'none'
-      },
-      '&[data-invalid]': {
-        borderColor: '#F87171',
-        animation: 'clerk-shake 0.4s cubic-bezier(.36,.07,.19,.97) both',
       }
     },
     dividerLine: { background: 'rgba(255,255,255,0.1)' },
     dividerText: { color: '#6B7280' },
-    footerActionText: { color: '#6B7280' },
+    footerActionText: { color: '#9CA3AF' },
     footerActionLink: { color: '#34D399', '&:hover': { color: '#10B981' } },
     footer: { background: 'transparent', borderTop: 'none', paddingBottom: '0' },
     clerkBadge: { '&::before': { backgroundColor: 'transparent' } } // Tones down development mode badge
@@ -167,14 +164,14 @@ export default function LoginPage() {
                 {mode === 'signin' ? (
                   <SignIn 
                     routing="hash" 
-                    forceRedirectUrl="/onboarding" 
+                    forceRedirectUrl="/dashboard" 
                     signUpUrl="/login#sign-up"
                     appearance={clerkAppearance} 
                   />
                 ) : (
                   <SignUp 
                     routing="hash" 
-                    forceRedirectUrl="/onboarding" 
+                    forceRedirectUrl="/dashboard" 
                     signInUrl="/login#sign-in"
                     appearance={clerkAppearance} 
                   />

@@ -44,6 +44,7 @@ class Milestone(Base):
     )
 
     due_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    submission_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Timestamps for state transitions — used for audit trail
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

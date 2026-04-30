@@ -74,3 +74,30 @@ def list_users(
     """Returns paginated list of all users — admin only."""
     users = get_all_users(db, skip=skip, limit=limit)
     return success_response(data=[UserResponse.model_validate(u) for u in users])
+
+
+@router.put("/{user_id}")
+def admin_update_user(
+    user_id: uuid.UUID,
+    data: UserUpdate,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_role("admin")),
+):
+    """Updates any user — admin only."""
+    user = update_user(db, user_id, data)
+    return success_response(
+        data=UserResponse.model_validate(user),
+        message="User updated successfully",
+    )
+
+
+@router.delete("/{user_id}")
+def delete_user(
+    user_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_role("admin")),
+):
+    """Deletes a user — admin only."""
+    from app.services.user_service import delete_user as service_delete_user
+    service_delete_user(db, user_id)
+    return success_response(message="User deleted successfully")
