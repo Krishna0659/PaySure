@@ -1,5 +1,5 @@
 import uuid
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -10,6 +10,7 @@ from app.services.payment_service import (
 )
 from app.core.security import get_current_user
 from app.utils.response import success_response
+from app.core.limiter import limiter
 
 router = APIRouter(prefix="/payments", tags=["Payments"])
 
@@ -32,7 +33,9 @@ def wallet_summary(
 
 
 @router.post("/create-order")
+@limiter.limit("10/minute")
 def initiate_payment(
+    request: Request,
     data: PaymentOrderCreate,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
@@ -40,6 +43,7 @@ def initiate_payment(
     """
     Client initiates payment for an invoice.
     Creates a Razorpay order and returns order details to the frontend.
+    Rate limited to 10 requests/minute.
     """
     order = create_payment_order(db, data, client_id=current_user.id)
     return success_response(
@@ -49,7 +53,9 @@ def initiate_payment(
 
 
 @router.post("/verify")
+@limiter.limit("10/minute")
 def confirm_payment(
+    request: Request,
     data: PaymentVerify,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
@@ -57,6 +63,7 @@ def confirm_payment(
     """
     Frontend sends Razorpay callback data here for verification.
     On success, escrow is funded and project activates.
+    Rate limited to 10 requests/minute.
     """
     payment = verify_payment(db, data)
     return success_response(
@@ -73,4 +80,4 @@ def get_payment_history(
 ):
     """Returns full payment history for an escrow — audit trail."""
     payments = get_payments_for_escrow(db, escrow_id)
-    return success_response(data=[PaymentResponse.model_validate(p) for p in payments])
+    return success_response(data=[PaymentResponse.model_validate(p) for p in payments])

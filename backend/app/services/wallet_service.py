@@ -41,9 +41,20 @@ def deposit_to_wallet(db: Session, user_id: uuid.UUID, amount: float) -> Wallet:
     """
     Simulates a deposit (e.g. Razorpay top-up).
     Increases wallet.balance and records a WalletTransaction.
+
+    ⚠️  DEV/SANDBOX ONLY — In production, deposits must be triggered by
+    a verified Razorpay webhook, never directly by the client.
     """
     if amount <= 0:
         raise HTTPException(status_code=400, detail="Deposit amount must be greater than 0")
+
+    # Maximum per-transaction deposit guard — prevents runaway test balances
+    MAX_DEPOSIT = 100_000.00
+    if amount > MAX_DEPOSIT:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Maximum deposit per transaction is ₹{MAX_DEPOSIT:,.2f} (sandbox limit)",
+        )
 
     wallet = get_or_create_wallet(db, user_id)
     wallet.balance = float(wallet.balance) + amount
@@ -54,7 +65,7 @@ def deposit_to_wallet(db: Session, user_id: uuid.UUID, amount: float) -> Wallet:
         transaction_type=WalletTransactionType.deposit,
         amount=amount,
         currency=wallet.currency,
-        description=f"Wallet top-up of ₹{amount:,.2f}",
+        description=f"[SANDBOX] Wallet top-up of ₹{amount:,.2f}",
         status=WalletTransactionStatus.completed,
     )
     db.add(txn)
@@ -126,7 +137,7 @@ def release_to_freelancer(
 
     client_txn = WalletTransaction(
         wallet_id=client_wallet.id,
-        transaction_type=WalletTransactionType.escrow_lock,
+        transaction_type=WalletTransactionType.release,  # Correct: funds leaving escrow to freelancer
         amount=amount,
         currency=client_wallet.currency,
         invoice_id=invoice_id,

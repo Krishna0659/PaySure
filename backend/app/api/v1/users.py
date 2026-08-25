@@ -1,9 +1,9 @@
 import uuid
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, status, Query
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.schemas.user import UserResponse, UserUpdate
+from app.schemas.user import UserResponse, UserUpdate, AdminUserUpdate
 from app.services.user_service import get_user_by_id, update_user, get_all_users
 from app.core.security import get_current_user, require_role
 from app.utils.response import success_response
@@ -66,12 +66,12 @@ def get_user(
 
 @router.get("/")
 def list_users(
-    skip: int = 0,
-    limit: int = 50,
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=200),
     db: Session = Depends(get_db),
     current_user=Depends(require_role("admin")),
 ):
-    """Returns paginated list of all users — admin only."""
+    """Returns paginated list of all users — admin only. Max 200 per page."""
     users = get_all_users(db, skip=skip, limit=limit)
     return success_response(data=[UserResponse.model_validate(u) for u in users])
 
@@ -79,11 +79,11 @@ def list_users(
 @router.put("/{user_id}")
 def admin_update_user(
     user_id: uuid.UUID,
-    data: UserUpdate,
+    data: AdminUserUpdate,
     db: Session = Depends(get_db),
     current_user=Depends(require_role("admin")),
 ):
-    """Updates any user — admin only."""
+    """Updates any user including is_active status — admin only."""
     user = update_user(db, user_id, data)
     return success_response(
         data=UserResponse.model_validate(user),

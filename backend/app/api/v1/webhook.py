@@ -63,4 +63,8 @@ async def razorpay_webhook(request: Request, db: Session = Depends(get_db)):
 
     except Exception as exc:
         logger.error(f"razorpay_webhook: unexpected error — {exc}", exc_info=True)
-        return {"status": "ok"}
+        return Response(
+            content='{"detail":"Webhook processing error"}',
+            status_code=500,
+            media_type="application/json",
+        )

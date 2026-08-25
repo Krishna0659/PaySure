@@ -61,10 +61,23 @@ def fund_escrow(db: Session, invoice_id: uuid.UUID) -> Escrow:
     escrow.status = EscrowStatus.funded
     escrow.funded_at = datetime.now(timezone.utc)
 
-    # Invoice moves to FUNDED — waiting for freelancer applications
-    # (in_progress only happens after a freelancer is accepted)
-    invoice.status = InvoiceStatus.funded
-    # NOTE: milestones stay PENDING until a freelancer is accepted
+    if invoice.freelancer_id:
+        # Direct project with assigned freelancer — starts immediately
+        invoice.status = InvoiceStatus.in_progress
+        first_milestone = (
+            db.query(Milestone)
+            .filter(
+                Milestone.invoice_id == invoice_id,
+                Milestone.status == MilestoneStatus.pending,
+            )
+            .order_by(Milestone.order)
+            .first()
+        )
+        if first_milestone:
+            first_milestone.status = MilestoneStatus.in_progress
+    else:
+        # Open job post waiting for freelancer application acceptance
+        invoice.status = InvoiceStatus.funded
 
     db.commit()
     db.refresh(escrow)

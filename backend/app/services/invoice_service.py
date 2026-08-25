@@ -117,11 +117,11 @@ def delete_invoice(db: Session, invoice_id: uuid.UUID) -> None:
 
 
 def send_invoice(db: Session, invoice_id: uuid.UUID, requester_id: uuid.UUID) -> Invoice:
-    """Transitions invoice from DRAFT → SENT."""
+    """Transitions invoice from DRAFT → SENT. Only the freelancer can send the invoice."""
     invoice = get_invoice_by_id(db, invoice_id)
 
-    if invoice.freelancer_id != requester_id and invoice.client_id != requester_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+    if invoice.freelancer_id != requester_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the freelancer can send this invoice")
 
     if invoice.status != InvoiceStatus.draft:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only draft invoices can be sent")

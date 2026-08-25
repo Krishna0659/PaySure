@@ -35,6 +35,22 @@ def create_payment_order(db: Session, data: PaymentOrderCreate, client_id: uuid.
     Also creates the escrow record if it doesn't exist yet.
     Returns the Razorpay order details needed by the frontend.
     """
+    from app.models.invoice import Invoice
+    invoice = db.query(Invoice).filter(Invoice.id == data.invoice_id).first()
+    if not invoice:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invoice not found")
+
+    # If invoice has an assigned client, only that client can fund it
+    if invoice.client_id and invoice.client_id != client_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You are not authorized to fund this invoice")
+
+    # Validate amount matches invoice total
+    if float(data.amount) != float(invoice.total_amount):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Payment amount ({data.amount}) does not match invoice total ({invoice.total_amount})",
+        )
+
     # Get or create escrow for this invoice
     try:
         escrow = get_escrow_by_invoice(db, data.invoice_id)

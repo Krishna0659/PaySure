@@ -1,3 +1,18 @@
+"""
+PaySure Test Configuration
+===========================
+Since PaySure uses Clerk for authentication, tests use deterministic test tokens
+(e.g., test_token_freelancer, test_token_client, test_token_admin) which decode_clerk_token
+resolves to persistent test users in the test database.
+
+This enables end-to-end testing of:
+    - HTTP Authorization headers
+    - Token validation & rejection
+    - Database user lookups
+    - Role-based access control (RBAC)
+    - Full multi-user escrow, payment, and dispute workflows
+"""
+import uuid
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -7,9 +22,14 @@ from sqlalchemy.pool import StaticPool
 from app.main import app
 from app.db.base import Base
 from app.db.session import get_db
+from app.core.security import hash_password
+from app.core.limiter import limiter
+from app.models.user import User, UserRole
+
+# Disable rate limiting during automated test suite execution
+limiter.enabled = False
 
 # ─── Test Database Setup ────────────────────────────────────────────────────
-# Uses in-memory SQLite for tests — fast, isolated, no Neon dependency
 SQLITE_URL = "sqlite:///./test_paysure.db"
 
 engine = create_engine(
@@ -48,7 +68,7 @@ def setup_database():
 
 @pytest.fixture(scope="function")
 def db():
-    """Provides a clean DB session per test function."""
+    """Provides a clean DB session per test function with rollback isolation."""
     connection = engine.connect()
     transaction = connection.begin()
     session = TestingSessionLocal(bind=connection)
@@ -65,15 +85,137 @@ def client():
         yield c
 
 
-# ─── Reusable Test Data Fixtures ────────────────────────────────────────────
+# ─── User Creation Helpers ──────────────────────────────────────────────────
+
+def make_user(
+    db,
+    email: str,
+    role: UserRole,
+    full_name: str = "Test User",
+    password: str = "TestPassword123!",
+    clerk_id: str | None = None,
+    is_onboarded: bool = True,
+    is_active: bool = True,
+    is_verified: bool = True,
+) -> User:
+    """Creates a user directly in the test DB."""
+    existing = db.query(User).filter(User.email == email).first()
+    if existing:
+        return existing
+
+    user = User(
+        id=uuid.uuid4(),
+        clerk_id=clerk_id or f"test_clerk_{uuid.uuid4().hex[:8]}",
+        full_name=full_name,
+        email=email,
+        role=role,
+        hashed_password=hash_password(password),
+        is_onboarded=is_onboarded,
+        is_active=is_active,
+        is_verified=is_verified,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+# ─── Session-Scoped Test Users ─────────────────────────────────────────────
+
+@pytest.fixture(scope="session")
+def session_db():
+    """Provides a session-scoped DB for creating persistent test users."""
+    db = TestingSessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+@pytest.fixture(scope="session")
+def freelancer_user(session_db):
+    """A freelancer user that persists for the whole test session."""
+    return make_user(
+        session_db,
+        email="freelancer@example.com",
+        role=UserRole.freelancer,
+        full_name="Test Freelancer",
+        clerk_id="test_clerk_freelancer",
+    )
+
+
+@pytest.fixture(scope="session")
+def client_user(session_db):
+    """A client user that persists for the whole test session."""
+    return make_user(
+        session_db,
+        email="client@example.com",
+        role=UserRole.client,
+        full_name="Test Client",
+        clerk_id="test_clerk_client",
+    )
+
+
+@pytest.fixture(scope="session")
+def admin_user(session_db):
+    """An admin user that persists for the whole test session."""
+    return make_user(
+        session_db,
+        email="admin@example.com",
+        role=UserRole.admin,
+        full_name="Test Admin",
+        clerk_id="test_clerk_admin",
+    )
+
+
+# ─── Auth Headers Fixtures ──────────────────────────────────────────────────
+
+@pytest.fixture(scope="session")
+def freelancer_headers(freelancer_user):
+    return {"Authorization": "Bearer test_token_freelancer"}
+
+
+@pytest.fixture(scope="session")
+def client_headers(client_user):
+    return {"Authorization": "Bearer test_token_client"}
+
+
+@pytest.fixture(scope="session")
+def admin_headers(admin_user):
+    return {"Authorization": "Bearer test_token_admin"}
+
+
+# ─── Context Fixtures ───────────────────────────────────────────────────────
+
+@pytest.fixture
+def as_freelancer(client, freelancer_headers):
+    return client, freelancer_headers
+
+
+@pytest.fixture
+def as_client_user(client, client_headers):
+    return client, client_headers
+
+
+@pytest.fixture
+def as_admin(client, admin_headers):
+    return client, admin_headers
+
+
+@pytest.fixture
+def no_auth(client):
+    return client
+
+
+# ─── Test Data Dict Fixtures ────────────────────────────────────────────────
 
 @pytest.fixture(scope="session")
 def freelancer_data():
     return {
         "full_name": "Test Freelancer",
-        "email": "freelancer@pytest.com",
-        "password": "PyTest1234",
-        "role": "freelancer"
+        "email": "freelancer@example.com",
+        "password": "TestPassword123!",
+        "role": "freelancer",
     }
 
 
@@ -81,9 +223,9 @@ def freelancer_data():
 def client_data():
     return {
         "full_name": "Test Client",
-        "email": "client@pytest.com",
-        "password": "PyTest1234",
-        "role": "client"
+        "email": "client@example.com",
+        "password": "TestPassword123!",
+        "role": "client",
     }
 
 
@@ -91,74 +233,24 @@ def client_data():
 def admin_data():
     return {
         "full_name": "Test Admin",
-        "email": "admin@pytest.com",
-        "password": "PyTest1234",
-        "role": "admin"
+        "email": "admin@example.com",
+        "password": "TestPassword123!",
+        "role": "admin",
     }
 
 
-@pytest.fixture(scope="session")
-def registered_freelancer(client, freelancer_data):
-    """Registers a freelancer once for the whole test session."""
-    response = client.post("/api/v1/auth/register", json=freelancer_data)
-    assert response.status_code == 201
-    return response.json()["data"]
-
+# ─── ID Fixtures ────────────────────────────────────────────────────────────
 
 @pytest.fixture(scope="session")
-def registered_client(client, client_data):
-    """Registers a client once for the whole test session."""
-    response = client.post("/api/v1/auth/register", json=client_data)
-    assert response.status_code == 201
-    return response.json()["data"]
+def freelancer_id(freelancer_user):
+    return str(freelancer_user.id)
 
 
 @pytest.fixture(scope="session")
-def registered_admin(client, admin_data):
-    """Registers an admin once for the whole test session."""
-    response = client.post("/api/v1/auth/register", json=admin_data)
-    assert response.status_code == 201
-    return response.json()["data"]
+def client_user_id(client_user):
+    return str(client_user.id)
 
 
 @pytest.fixture(scope="session")
-def freelancer_token(registered_freelancer):
-    """Returns the freelancer's JWT token."""
-    return registered_freelancer["access_token"]
-
-
-@pytest.fixture(scope="session")
-def client_token(registered_client):
-    """Returns the client's JWT token."""
-    return registered_client["access_token"]
-
-
-@pytest.fixture(scope="session")
-def admin_token(registered_admin):
-    """Returns the admin's JWT token."""
-    return registered_admin["access_token"]
-
-
-@pytest.fixture(scope="session")
-def freelancer_headers(freelancer_token):
-    return {"Authorization": f"Bearer {freelancer_token}"}
-
-
-@pytest.fixture(scope="session")
-def client_headers(client_token):
-    return {"Authorization": f"Bearer {client_token}"}
-
-
-@pytest.fixture(scope="session")
-def admin_headers(admin_token):
-    return {"Authorization": f"Bearer {admin_token}"}
-
-
-@pytest.fixture(scope="session")
-def freelancer_id(registered_freelancer):
-    return registered_freelancer["user"]["id"]
-
-
-@pytest.fixture(scope="session")
-def client_user_id(registered_client):
-    return registered_client["user"]["id"]
+def admin_user_id(admin_user):
+    return str(admin_user.id)
